@@ -1,0 +1,532 @@
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+-- Constants
+local BACKGROUND_COLOR = Color3.fromRGB(30, 30, 30)
+local ACCENT_COLOR = Color3.fromRGB(0, 170, 255)
+local TEXT_COLOR = Color3.fromRGB(255, 255, 255)
+local ENABLED_COLOR = Color3.fromRGB(0, 255, 100)
+local DISABLED_COLOR = Color3.fromRGB(255, 50, 50)
+local SELECT_COLOR = Color3.fromRGB(255, 165, 0) -- Orange color for selection mode
+local BUTTON_HOVER_COLOR = Color3.fromRGB(255, 255, 255)
+
+local function createAutoClickGUI()
+    local player = Players.LocalPlayer
+    local playerGui = player:WaitForChild("PlayerGui")
+    
+    -- Variables
+    local isAutoClickEnabled = false
+    local clickInterval = 1 -- Default interval in seconds
+    local isDragging = false
+    local dragStart = nil
+    local startPos = nil
+    local isSelectionMode = false
+    local selectedPosition = nil
+    local clickIndicator = nil
+    local isMinimized = false -- Track if GUI is minimized
+    
+    -- Create ScreenGui
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "AutoClickGUI"
+    screenGui.ResetOnSpawn = false
+    
+    -- Main Frame
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.new(0, 200, 0, 220) -- Increased height for new elements
+    mainFrame.Position = UDim2.new(0.8, 0, 0.3, 0)
+    mainFrame.BackgroundColor3 = BACKGROUND_COLOR
+    mainFrame.BackgroundTransparency = 0.2
+    mainFrame.Parent = screenGui
+    
+    -- Add Corner Radius
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = mainFrame
+    
+    -- Title Bar
+    local titleBar = Instance.new("Frame")
+    titleBar.Name = "TitleBar"
+    titleBar.Size = UDim2.new(1, 0, 0, 30)
+    titleBar.BackgroundColor3 = ACCENT_COLOR
+    titleBar.BackgroundTransparency = 0.5
+    titleBar.Parent = mainFrame
+    
+    local titleCorner = Instance.new("UICorner")
+    titleCorner.CornerRadius = UDim.new(0, 10)
+    titleCorner.Parent = titleBar
+    
+    -- Title Text
+    local titleText = Instance.new("TextLabel")
+    titleText.Size = UDim2.new(1, -80, 1, 0) -- Made room for buttons
+    titleText.Position = UDim2.new(0, 10, 0, 0)
+    titleText.Text = "Auto Click"
+    titleText.TextColor3 = TEXT_COLOR
+    titleText.TextSize = 18
+    titleText.Font = Enum.Font.GothamBold
+    titleText.BackgroundTransparency = 1
+    titleText.TextXAlignment = Enum.TextXAlignment.Left
+    titleText.Parent = titleBar
+    
+    -- Close Button
+    local closeButton = Instance.new("TextButton")
+    closeButton.Size = UDim2.new(0, 24, 0, 24)
+    closeButton.Position = UDim2.new(1, -26, 0, 3)
+    closeButton.Text = "X"
+    closeButton.TextColor3 = TEXT_COLOR
+    closeButton.TextSize = 14
+    closeButton.Font = Enum.Font.GothamBold
+    closeButton.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+    closeButton.BackgroundTransparency = 0.5
+    closeButton.Parent = titleBar
+    
+    local closeCorner = Instance.new("UICorner")
+    closeCorner.CornerRadius = UDim.new(0, 5)
+    closeCorner.Parent = closeButton
+    
+    -- Minimize Button
+    local minimizeButton = Instance.new("TextButton")
+    minimizeButton.Size = UDim2.new(0, 24, 0, 24)
+    minimizeButton.Position = UDim2.new(1, -56, 0, 3)
+    minimizeButton.Text = "-"
+    minimizeButton.TextColor3 = TEXT_COLOR
+    minimizeButton.TextSize = 20
+    minimizeButton.Font = Enum.Font.GothamBold
+    minimizeButton.BackgroundColor3 = Color3.fromRGB(50, 50, 255)
+    minimizeButton.BackgroundTransparency = 0.5
+    minimizeButton.Parent = titleBar
+    
+    local minimizeCorner = Instance.new("UICorner")
+    minimizeCorner.CornerRadius = UDim.new(0, 5)
+    minimizeCorner.Parent = minimizeButton
+    
+    -- Status Text
+    local statusText = Instance.new("TextLabel")
+    statusText.Size = UDim2.new(1, 0, 0, 20)
+    statusText.Position = UDim2.new(0, 0, 0, 40)
+    statusText.Text = "Status: Disabled"
+    statusText.TextColor3 = DISABLED_COLOR
+    statusText.TextSize = 14
+    statusText.Font = Enum.Font.Gotham
+    statusText.BackgroundTransparency = 1
+    statusText.Parent = mainFrame
+    
+    -- Interval Input
+    local intervalLabel = Instance.new("TextLabel")
+    intervalLabel.Size = UDim2.new(0.4, 0, 0, 20)
+    intervalLabel.Position = UDim2.new(0.1, 0, 0, 70)
+    intervalLabel.Text = "Interval:"
+    intervalLabel.TextColor3 = TEXT_COLOR
+    intervalLabel.TextSize = 14
+    intervalLabel.Font = Enum.Font.Gotham
+    intervalLabel.BackgroundTransparency = 1
+    intervalLabel.Parent = mainFrame
+    
+    local intervalInput = Instance.new("TextBox")
+    intervalInput.Size = UDim2.new(0.3, 0, 0, 20)
+    intervalInput.Position = UDim2.new(0.5, 0, 0, 70)
+    intervalInput.Text = "1"
+    intervalInput.TextColor3 = TEXT_COLOR
+    intervalInput.TextSize = 14
+    intervalInput.Font = Enum.Font.Gotham
+    intervalInput.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    intervalInput.Parent = mainFrame
+    
+    local intervalCorner = Instance.new("UICorner")
+    intervalCorner.CornerRadius = UDim.new(0, 5)
+    intervalCorner.Parent = intervalInput
+    
+    -- Position Label
+    local positionLabel = Instance.new("TextLabel")
+    positionLabel.Size = UDim2.new(0.9, 0, 0, 20)
+    positionLabel.Position = UDim2.new(0.05, 0, 0, 100)
+    positionLabel.Text = "Position: Not Selected"
+    positionLabel.TextColor3 = TEXT_COLOR
+    positionLabel.TextSize = 12
+    positionLabel.Font = Enum.Font.Gotham
+    positionLabel.BackgroundTransparency = 1
+    positionLabel.TextWrapped = true
+    positionLabel.Parent = mainFrame
+    
+    -- Select Position Button
+    local selectButton = Instance.new("TextButton")
+    selectButton.Size = UDim2.new(0.8, 0, 0, 30)
+    selectButton.Position = UDim2.new(0.1, 0, 0, 130)
+    selectButton.Text = "Select Position"
+    selectButton.TextColor3 = TEXT_COLOR
+    selectButton.TextSize = 16
+    selectButton.Font = Enum.Font.GothamBold
+    selectButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    selectButton.Parent = mainFrame
+    
+    local selectCorner = Instance.new("UICorner")
+    selectCorner.CornerRadius = UDim.new(0, 8)
+    selectCorner.Parent = selectButton
+    
+    -- Toggle Button
+    local toggleButton = Instance.new("TextButton")
+    toggleButton.Size = UDim2.new(0.8, 0, 0, 30)
+    toggleButton.Position = UDim2.new(0.1, 0, 0, 170)
+    toggleButton.Text = "Enable"
+    toggleButton.TextColor3 = TEXT_COLOR
+    toggleButton.TextSize = 16
+    toggleButton.Font = Enum.Font.GothamBold
+    toggleButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    toggleButton.Parent = mainFrame
+    
+    local toggleCorner = Instance.new("UICorner")
+    toggleCorner.CornerRadius = UDim.new(0, 8)
+    toggleCorner.Parent = toggleButton
+    
+    -- Function to update position display
+    local function updatePositionDisplay()
+        if selectedPosition then
+            positionLabel.Text = string.format("Position: X: %.0f, Y: %.0f", 
+                selectedPosition.X, selectedPosition.Y)
+        else
+            positionLabel.Text = "Position: Not Selected"
+        end
+    end
+    
+    -- Function to create click visual indicator
+    local function createClickIndicator(position)
+        -- Remove previous indicator if it exists
+        if clickIndicator then
+            clickIndicator:Destroy()
+        end
+        
+        -- Create new indicator
+        clickIndicator = Instance.new("Frame")
+        clickIndicator.Size = UDim2.new(0, 20, 0, 20)
+        clickIndicator.Position = UDim2.new(0, position.X - 10, 0, position.Y - 10)
+        clickIndicator.BackgroundColor3 = ENABLED_COLOR
+        clickIndicator.BackgroundTransparency = 0.5
+        clickIndicator.Parent = screenGui
+        
+        -- Add animation effect
+        local clickCorner = Instance.new("UICorner")
+        clickCorner.CornerRadius = UDim.new(1, 0) -- Circle shape
+        clickCorner.Parent = clickIndicator
+        
+        -- Pulsing animation
+        spawn(function()
+            while clickIndicator and clickIndicator.Parent do
+                TweenService:Create(clickIndicator, TweenInfo.new(0.5), {
+                    BackgroundTransparency = 0.8,
+                    Size = UDim2.new(0, 30, 0, 30),
+                    Position = UDim2.new(0, position.X - 15, 0, position.Y - 15)
+                }):Play()
+                wait(0.5)
+                if clickIndicator and clickIndicator.Parent then
+                    TweenService:Create(clickIndicator, TweenInfo.new(0.5), {
+                        BackgroundTransparency = 0.5,
+                        Size = UDim2.new(0, 20, 0, 20),
+                        Position = UDim2.new(0, position.X - 10, 0, position.Y - 10)
+                    }):Play()
+                    wait(0.5)
+                end end
+            end
+        end)
+    end
+    
+    -- Position selection function
+    local function enterSelectionMode()
+        isSelectionMode = true
+        isAutoClickEnabled = false
+        
+        -- Update UI appearance
+        selectButton.Text = "Selecting..."
+        selectButton.BackgroundColor3 = SELECT_COLOR
+        statusText.Text = "Status: Select a position"
+        statusText.TextColor3 = SELECT_COLOR
+        toggleButton.Text = "Enable"
+        toggleButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+        
+        -- Create selection instruction
+        local instruction = Instance.new("TextLabel")
+        instruction.Name = "SelectionInstruction"
+        instruction.Size = UDim2.new(0, 300, 0, 40) -- Increased height for better visibility on mobile
+        instruction.Position = UDim2.new(0.5, -150, 0.1, 0)
+        instruction.Text = UserInputService.TouchEnabled 
+            and "แตะที่ใดก็ได้เพื่อเลือกตำแหน่งคลิก" 
+            or "Click anywhere to select auto-click position"
+        instruction.TextColor3 = SELECT_COLOR
+        instruction.TextSize = 18
+        instruction.Font = Enum.Font.GothamBold
+        instruction.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        instruction.BackgroundTransparency = 0.3
+        instruction.TextWrapped = true
+        instruction.Parent = screenGui
+        
+        local instructionCorner = Instance.new("UICorner")
+        instructionCorner.CornerRadius = UDim.new(0, 8)
+        instructionCorner.Parent = instruction
+        
+        -- Connection to detect selection
+        local selectionConnection
+        selectionConnection = UserInputService.InputBegan:Connect(function(input)
+            if (input.UserInputType == Enum.UserInputType.MouseButton1 or
+                input.UserInputType == Enum.UserInputType.Touch) and 
+                not isDragging then
+                
+                -- Get position
+                local position = input.Position
+                
+                -- Check if we're clicking on the GUI
+                local absPos = mainFrame.AbsolutePosition
+                local absSize = mainFrame.AbsoluteSize
+                
+                -- Make sure we're not clicking on our GUI
+                if not (position.X >= absPos.X and position.X <= absPos.X + absSize.X and
+                       position.Y >= absPos.Y and position.Y <= absPos.Y + absSize.Y) and
+                   not (instruction and position.X >= instruction.AbsolutePosition.X and
+                       position.X <= instruction.AbsolutePosition.X + instruction.AbsoluteSize.X and
+                       position.Y >= instruction.AbsolutePosition.Y and
+                       position.Y <= instruction.AbsolutePosition.Y + instruction.AbsoluteSize.Y) then
+                    
+                    -- Set the position
+                    selectedPosition = position
+                    updatePositionDisplay()
+                    createClickIndicator(position)
+                    
+                    -- Exit selection mode
+                    isSelectionMode = false
+                    selectButton.Text = "Select Position"
+                    selectButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+                    statusText.Text = "Status: Ready (Position Set)"
+                    statusText.TextColor3 = TEXT_COLOR
+                    
+                    -- Remove instruction
+                    if instruction then
+                        instruction:Destroy()
+                    end
+                    
+                    -- Disconnect
+                    selectionConnection:Disconnect()
+                end
+            end
+        end)
+    end
+    
+    -- Auto Click Logic
+    local function updateAutoClick()
+        if not selectedPosition then
+            -- Show warning if no position selected
+            statusText.Text = "Status: Select position first!"
+            statusText.TextColor3 = DISABLED_COLOR
+            
+            -- Make the position label flash
+            TweenService:Create(positionLabel, TweenInfo.new(0.3), {
+                TextColor3 = DISABLED_COLOR
+            }):Play()
+            delay(0.6, function()
+                TweenService:Create(positionLabel, TweenInfo.new(0.3), {
+                    TextColor3 = TEXT_COLOR
+                }):Play()
+            end)
+            return
+        end
+        
+        isAutoClickEnabled = not isAutoClickEnabled
+        
+        -- Update GUI elements
+        statusText.Text = "Status: " .. (isAutoClickEnabled and "Enabled" or "Disabled")
+        statusText.TextColor3 = isAutoClickEnabled and ENABLED_COLOR or DISABLED_COLOR
+        toggleButton.Text = isAutoClickEnabled and "Disable" or "Enable"
+        toggleButton.BackgroundColor3 = isAutoClickEnabled and 
+            Color3.fromRGB(50, 200, 50) or Color3.fromRGB(45, 45, 45)
+        
+        -- Create highlight effect
+        local highlight = Instance.new("Frame")
+        highlight.Size = UDim2.new(1, 0, 1, 0)
+        highlight.BackgroundColor3 = isAutoClickEnabled and ENABLED_COLOR or DISABLED_COLOR
+        highlight.BackgroundTransparency = 0.8
+        highlight.Parent = toggleButton
+        
+        local highlightCorner = Instance.new("UICorner")
+        highlightCorner.CornerRadius = UDim.new(0, 8)
+        highlightCorner.Parent = highlight
+        
+        TweenService:Create(highlight, TweenInfo.new(0.5), {
+            BackgroundTransparency = 1
+        }):Play()
+        
+        game.Debris:AddItem(highlight, 0.5)
+    end
+    
+    -- Connect interval input
+    intervalInput.FocusLost:Connect(function(enterPressed)
+        local newInterval = tonumber(intervalInput.Text)
+        if newInterval and newInterval > 0 then
+            clickInterval = newInterval
+        else
+            intervalInput.Text = tostring(clickInterval)
+        end
+    end)
+    
+    -- Connect selection button
+    selectButton.MouseButton1Click:Connect(function()
+        if not isSelectionMode then
+            enterSelectionMode()
+        end
+    end)
+    
+    -- Connect toggle button
+    toggleButton.MouseButton1Click:Connect(updateAutoClick)
+    
+    -- Function to simulate touch at given position
+    local function simulateTouchAtPosition(position)
+        -- Create and fire touch event
+        local touchEvent = {
+            UserInputState = Enum.UserInputState.Begin,
+            Position = position,
+            Delta = Vector2.new(0, 0),
+            KeyCode = Enum.KeyCode.Unknown,
+            UserInputType = Enum.UserInputType.Touch
+        }
+        
+        -- Dispatch touch events - this simulates both pressing and releasing quickly
+        UserInputService:SimulateTouch(touchEvent, true)  -- Begin touch
+        wait(0.05)
+        touchEvent.UserInputState = Enum.UserInputState.End
+        UserInputService:SimulateTouch(touchEvent, true)  -- End touch
+    end
+    
+    -- Auto Click Loop
+    RunService.Heartbeat:Connect(function()
+        if isAutoClickEnabled and selectedPosition then
+            if UserInputService.TouchEnabled then
+                -- For touch devices, simulate touch at position
+                simulateTouchAtPosition(selectedPosition)
+            else
+                -- For mouse devices, move mouse and click
+                mousemoveabs(selectedPosition.X, selectedPosition.Y)
+                wait(0.05) -- Small delay to ensure mouse is moved
+                mouse1click()
+            end
+            wait(clickInterval)
+        end
+    end)
+    
+    -- Add button functionality
+    
+    -- Close button functionality
+    closeButton.MouseButton1Click:Connect(function()
+        if clickIndicator then
+            clickIndicator:Destroy()
+        end
+        screenGui:Destroy()
+    end)
+    
+    -- Add hover effects to buttons
+    closeButton.MouseEnter:Connect(function()
+        TweenService:Create(closeButton, TweenInfo.new(0.2), {
+            BackgroundTransparency = 0.2
+        }):Play()
+    end)
+    
+    closeButton.MouseLeave:Connect(function()
+        TweenService:Create(closeButton, TweenInfo.new(0.2), {
+            BackgroundTransparency = 0.5
+        }):Play()
+    end)
+    
+    minimizeButton.MouseEnter:Connect(function()
+        TweenService:Create(minimizeButton, TweenInfo.new(0.2), {
+            BackgroundTransparency = 0.2
+        }):Play()
+    end)
+    
+    minimizeButton.MouseLeave:Connect(function()
+        TweenService:Create(minimizeButton, TweenInfo.new(0.2), {
+            BackgroundTransparency = 0.5
+        }):Play()
+    end)
+    
+    -- Minimize button functionality
+    minimizeButton.MouseButton1Click:Connect(function()
+        isMinimized = not isMinimized
+        
+        local contentFrames = {
+            statusText, intervalLabel, intervalInput, positionLabel, 
+            selectButton, toggleButton
+        }
+        
+        if isMinimized then
+            -- Minimize the GUI
+            minimizeButton.Text = "+"
+            
+            -- Store original size for restoring later
+            mainFrame:SetAttribute("OriginalHeight", mainFrame.Size.Y.Offset)
+            
+            -- Hide content frames
+            for _, frame in ipairs(contentFrames) do
+                frame.Visible = false
+            end
+            
+            -- Shrink the main frame
+            TweenService:Create(mainFrame, TweenInfo.new(0.3), {
+                Size = UDim2.new(0, 200, 0, 35)
+            }):Play()
+        else
+            -- Restore the GUI
+            minimizeButton.Text = "-"
+            
+            -- Restore the main frame size
+            local originalHeight = mainFrame:GetAttribute("OriginalHeight") or 220
+            TweenService:Create(mainFrame, TweenInfo.new(0.3), {
+                Size = UDim2.new(0, 200, 0, originalHeight)
+            }):Play()
+            
+            -- Show content frames after animation
+            delay(0.15, function()
+                for _, frame in ipairs(contentFrames) do
+                    frame.Visible = true
+                end
+            end)
+        end
+    end)
+    
+    -- Dragging functionality
+    titleBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or
+           input.UserInputType == Enum.UserInputTyreturnch then
+            isDragging = true
+            dragStart = input.Position
+            startPos = mainFrame.Position
+        end
+    end)
+    
+    titleBar.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or
+           input.UserInputType == Enum.UserInputType.Touch then
+            isDragging = false
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or
+           input.UserInputType == Enum.UserInputType.Touch then
+            if isDragging then
+                local delta = input.Position - dragStart
+                local targetPosition = UDim2.new(
+                    startPos.X.Scale,
+                    startPos.X.Offset + delta.X,
+                    startPos.Y.Scale,
+                    startPos.Y.Offset + delta.Y
+                )
+                
+                TweenService:Create(mainFrame, TweenInfo.new(0.1), {
+                    Position = targetPosition
+                }):Play()
+            end
+        end
+    end)
+    
+    screenGui.Parent = playerGui
+    return screenGui
+end
+
+createAutoClickGUI()
